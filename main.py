@@ -13,9 +13,6 @@ WHITE = (255, 255, 255)
 GRAY = (169, 169, 169)
 FPS = 30
 
-line_clear_sound = pygame.mixer.Sound('line_clear.wav')
-game_over_sound = pygame.mixer.Sound('game_over.wav')
-
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Tetris Game")
 clock = pygame.time.Clock()
@@ -64,6 +61,31 @@ class Tetromino:
                         return True
         return False
 
+    def get_ghost_position(self):
+        ghost_y = self.y
+        while not self.collision_at(self.x, ghost_y + 1):
+            ghost_y += 1
+        return ghost_y
+
+    def collision_at(self, x, y):
+        for i in range(len(self.shape)):
+            for j in range(len(self.shape[0])):
+                if self.shape[i][j]:
+                    if x + j < 0 or x + j >= GRID_WIDTH or y + i >= GRID_HEIGHT:
+                        return True
+                    if grid[y + i][x + j]:
+                        return True
+        return False
+
+    def draw_ghost(self):
+        ghost_y = self.get_ghost_position()
+        for i in range(len(self.shape)):
+            for j in range(len(self.shape[0])):
+                if self.shape[i][j]:
+                    pygame.draw.rect(screen, self.color, (self.x * GRID_SIZE + j * GRID_SIZE,
+                                                          ghost_y * GRID_SIZE + i * GRID_SIZE,
+                                                          GRID_SIZE, GRID_SIZE), 1)
+
 def draw_grid():
     for y in range(GRID_HEIGHT):
         for x in range(GRID_WIDTH):
@@ -73,15 +95,12 @@ def draw_grid():
 def check_lines():
     global grid
     full_lines = [i for i, row in enumerate(grid) if all(row)]
-    if full_lines:
-        line_clear_sound.play()
     for i in full_lines:
         del grid[i]
         grid.insert(0, [0 for _ in range(GRID_WIDTH)])
     return len(full_lines)
 
 def game_over(final_score, final_level, total_lines):
-    game_over_sound.play()
     font = pygame.font.Font(None, 74)
     text = font.render("Game Over", True, WHITE)
     screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() // 2, SCREEN_HEIGHT // 2 - text.get_height() // 2 - 50))
@@ -131,6 +150,7 @@ total_lines_cleared = 0
 level_up_lines = 5
 gravity_speed = 30
 paused = False
+frame_count = 0
 
 while True:
     screen.fill(BLACK)
@@ -167,33 +187,38 @@ while True:
                             current_tetromino.rotate()
 
     if not paused:
-        current_tetromino.move(0, 1)
-        if current_tetromino.collision():
-            current_tetromino.move(0, -1)
-            for i in range(len(current_tetromino.shape)):
-                for j in range(len(current_tetromino.shape[0])):
-                    if current_tetromino.shape[i][j]:
-                        grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
-            current_tetromino = next_tetromino
-            next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
-                                       random.choice(list(tetrominoes.values()))['color'])
+        frame_count += 1
+        if frame_count >= gravity_speed:
+            frame_count = 0
+            current_tetromino.move(0, 1)
             if current_tetromino.collision():
-                game_over(score, level, total_lines_cleared)
-            lines = check_lines()
-            lines_cleared += lines
-            total_lines_cleared += lines
-            score += lines * 100
-            if lines_cleared >= level_up_lines:
-                level += 1
-                lines_cleared = 0
-                gravity_speed = max(1, gravity_speed - 2)
+                current_tetromino.move(0, -1)
+                for i in range(len(current_tetromino.shape)):
+                    for j in range(len(current_tetromino.shape[0])):
+                        if current_tetromino.shape[i][j]:
+                            grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
+                lines = check_lines()
+                if lines > 0:
+                    score += lines * 100 * level
+                    lines_cleared += lines
+                    total_lines_cleared += lines
+                    if lines_cleared >= level_up_lines:
+                        level += 1
+                        lines_cleared = 0
+                        gravity_speed = max(1, gravity_speed - 2)
+                current_tetromino = next_tetromino
+                next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                                           random.choice(list(tetrominoes.values()))['color'])
+                if current_tetromino.collision():
+                    game_over(score, level, total_lines_cleared)
 
+    draw_grid()
+    current_tetromino.draw_ghost()
+    current_tetromino.draw()
+    draw_next_tetromino(next_tetromino)
     draw_text(f'Score: {score}', 36, WHITE, SCREEN_WIDTH - 150, 20)
     draw_text(f'Level: {level}', 36, WHITE, SCREEN_WIDTH - 150, 60)
     draw_text(f'Lines: {total_lines_cleared}', 36, WHITE, SCREEN_WIDTH - 150, 100)
-    draw_grid()
-    current_tetromino.draw()
-    draw_next_tetromino(next_tetromino)
 
     if paused:
         draw_text("Paused", 74, WHITE, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50)
