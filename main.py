@@ -13,6 +13,11 @@ WHITE = (255, 255, 255)
 GRAY = (169, 169, 169)
 FPS = 30
 
+# Define game modes
+NORMAL_MODE = 0
+IMPOSSIBLE_MODE = 1
+current_game_mode = NORMAL_MODE  # Start with normal mode
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Tetris Game")
 clock = pygame.time.Clock()
@@ -179,101 +184,89 @@ def update_high_scores(score, level, lines):
 
 def load_high_scores():
     try:
-        with open(HIGH_SCORE_FILE, 'r') as file:
-            high_scores = [line.strip().split(',') for line in file.readlines()]
-            high_scores = [(int(score), int(level), int(lines)) for score, level, lines in high_scores]
+        with open("high_scores.txt", "r") as file:
+            high_scores = [tuple(map(int, line.strip().split())) for line in file]
             return high_scores
     except FileNotFoundError:
         return []
 
 def save_high_scores(high_scores):
-    with open(HIGH_SCORE_FILE, 'w') as file:
+    with open("high_scores.txt", "w") as file:
         for score, level, lines in high_scores:
-            file.write(f"{score},{level},{lines}\n")
+            file.write(f"{score} {level} {lines}\n")
 
-def display_high_scores():
-    high_scores = load_high_scores()
-    if high_scores:
-        print("High Scores:")
-        for i, (score, level, lines) in enumerate(high_scores, 1):
-            print(f"{i}. Score: {score}, Level: {level}, Lines: {lines}")
-    else:
-        print("No high scores yet.")
+reset_game()
 
-def main():
-    global current_tetromino, next_tetromino, score, level, lines_cleared, total_lines_cleared, gravity_speed
-
-    current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
-                                  random.choice(list(tetrominoes.values()))['color'])
-    next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
-                               random.choice(list(tetrominoes.values()))['color'])
-    score = 0
-    level = 1
-    lines_cleared = 0
-    total_lines_cleared = 0
-    gravity_speed = 30
-
-    running = True
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    current_tetromino.move(-1, 0)
-                    if current_tetromino.collision():
-                        current_tetromino.move(1, 0)
-                elif event.key == pygame.K_RIGHT:
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                current_tetromino.move(-1, 0)
+                if current_tetromino.collision():
                     current_tetromino.move(1, 0)
-                    if current_tetromino.collision():
-                        current_tetromino.move(-1, 0)
-                elif event.key == pygame.K_DOWN:
-                    current_tetromino.move(0, 1)
-                    if current_tetromino.collision():
-                        current_tetromino.move(0, -1)
-                        place_tetromino()
-                elif event.key == pygame.K_UP:
+            elif event.key == pygame.K_RIGHT:
+                current_tetromino.move(1, 0)
+                if current_tetromino.collision():
+                    current_tetromino.move(-1, 0)
+            elif event.key == pygame.K_DOWN:
+                current_tetromino.move(0, 1)
+                if current_tetromino.collision():
+                    current_tetromino.move(0, -1)
+            elif event.key == pygame.K_UP:
+                current_tetromino.rotate()
+                if current_tetromino.collision():
                     current_tetromino.rotate()
-                    if current_tetromino.collision():
-                        current_tetromino.rotate()
-                        current_tetromino.rotate()
-                        current_tetromino.rotate()
-                elif event.key == pygame.K_SPACE:
-                    drop_distance = hard_drop(current_tetromino)
-                    score += drop_distance * 2  # Score calculation for hard drop
+                    current_tetromino.rotate()
+                    current_tetromino.rotate()
+            elif event.key == pygame.K_SPACE:
+                drop_distance = hard_drop(current_tetromino)
+                score += drop_distance * 2  # Score based on drop distance
+                current_tetromino.move(0, 1)  # Move down one more step to place tetromino
+            elif event.key == pygame.K_n:  # Switch to normal mode
+                current_game_mode = NORMAL_MODE
+                reset_game()
+            elif event.key == pygame.K_i:  # Switch to impossible mode
+                current_game_mode = IMPOSSIBLE_MODE
+                reset_game()
 
-        screen.fill(BLACK)
-        draw_grid()
-        draw_next_tetromino(next_tetromino)
-        current_tetromino.draw()
-        current_tetromino.draw_ghost()
+    screen.fill(BLACK)
+    draw_grid()
 
-        if pygame.time.get_ticks() % gravity_speed == 0:
-            current_tetromino.move(0, 1)
-            if current_tetromino.collision():
-                current_tetromino.move(0, -1)
-                place_tetromino()
-
+    if current_tetromino.collision():
+        for i in range(len(current_tetromino.shape)):
+            for j in range(len(current_tetromino.shape[0])):
+                if current_tetromino.shape[i][j]:
+                    grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
         lines_cleared = check_lines()
-        if lines_cleared:
+        if lines_cleared > 0:
             total_lines_cleared += lines_cleared
-            score += (10 * lines_cleared) * level  # Score calculation for lines cleared
+            score += (level * lines_cleared * 100)  # Score calculation based on level and lines cleared
             if total_lines_cleared >= level * 10:
                 level += 1
-                gravity_speed -= 2  # Increase game speed with level
+                gravity_speed -= 2  # Increase speed every level up
 
-        draw_text(f"Score: {score}", 24, WHITE, 10, 10)
-        draw_text(f"Level: {level}", 24, WHITE, 10, 40)
-        draw_text(f"Lines: {total_lines_cleared}", 24, WHITE, 10, 70)
+        current_tetromino = next_tetromino
+        next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                                   random.choice(list(tetrominoes.values()))['color'])
 
         if current_tetromino.collision():
             game_over(score, level, total_lines_cleared)
 
-        pygame.display.flip()
-        clock.tick(FPS)
+    if current_game_mode == IMPOSSIBLE_MODE:
+        if not current_tetromino.collision():
+            current_tetromino.move(0, 1)
+    elif current_game_mode == NORMAL_MODE:
+        current_tetromino.move(0, 1)
 
-    pygame.quit()
+    current_tetromino.draw()
+    current_tetromino.draw_ghost()
+    draw_next_tetromino(next_tetromino)
+    draw_text(f"Score: {score}", 36, WHITE, 20, 20)
+    draw_text(f"Level: {level}", 36, WHITE, 20, 60)
+    draw_text(f"Lines: {total_lines_cleared}", 36, WHITE, 20, 100)
 
-if __name__ == '__main__':
-    HIGH_SCORE_FILE = 'high_scores.txt'
-    main()
+    pygame.display.flip()
+    clock.tick(FPS)
