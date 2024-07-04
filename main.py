@@ -52,5 +52,46 @@ class Tetromino:
     def move_right(self):
         self.x += 1
 
+
 current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
                               random.choice(list(tetrominoes.values()))['color'])
+
+while True:
+    screen.fill(BLACK)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                current_tetromino.move_left()
+                if current_tetromino.collision():
+                    current_tetromino.move_right()
+            if event.key == pygame.K_RIGHT:
+                current_tetromino.move_right()
+                if current_tetromino.collision():
+                    current_tetromino.move_left()
+            if event.key == pygame.K_DOWN:
+                current_tetromino.move_down()
+                if current_tetromino.collision():
+                    current_tetromino.move_down = False
+            if event.key == pygame.K_UP:
+                current_tetromino.rotate()
+                if current_tetromino.collision():
+                    for _ in range(3):
+                        current_tetromino.rotate()
+
+    current_tetromino.move_down()
+    if current_tetromino.collision():
+        current_tetromino.y -= 1
+        for i in range(len(current_tetromino.shape)):
+            for j in range(len(current_tetromino.shape[0])):
+                if current_tetromino.shape[i][j]:
+                    grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
+        current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                                      random.choice(list(tetrominoes.values()))['color'])
+        check_lines()
+
+    current_tetromino.draw()
+    pygame.display.update()
+    clock.tick(FPS)
