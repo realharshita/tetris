@@ -113,9 +113,42 @@ def game_over(final_score, final_level, total_lines):
     screen.blit(lines_text, (SCREEN_WIDTH // 2 - lines_text.get_width() // 2, SCREEN_HEIGHT // 2 - lines_text.get_height() // 2 + 140))
     
     pygame.display.update()
-    pygame.time.wait(3000)
-    pygame.quit()
-    exit()
+    pygame.time.wait(3000)  # Display game over screen for 3 seconds
+    show_game_over_menu()
+
+def show_game_over_menu():
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:  # Restart game
+                    reset_game()
+                    return
+                elif event.key == pygame.K_q:  # Quit game
+                    pygame.quit()
+                    exit()
+
+        # Display game over screen until player chooses an option
+        draw_text("Press 'R' to Restart or 'Q' to Quit", 36, WHITE, SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 + 100)
+        pygame.display.flip()
+        clock.tick(FPS)
+
+def reset_game():
+    global grid, current_tetromino, next_tetromino, score, level, lines_cleared, total_lines_cleared, gravity_speed
+    grid = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+    current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                                  random.choice(list(tetrominoes.values()))['color'])
+    next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                               random.choice(list(tetrominoes.values()))['color'])
+    score = 0
+    level = 1
+    lines_cleared = 0
+    total_lines_cleared = 0
+    gravity_speed = 30
+
+
 
 def draw_text(text, size, color, x, y):
     font = pygame.font.Font(None, size)
