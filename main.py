@@ -52,6 +52,26 @@ class Tetromino:
     def move_right(self):
         self.x += 1
 
+    def rotate(self):
+        self.shape = [list(row) for row in zip(*self.shape[::-1])]
+
+    def collision(self):
+        for i in range(len(self.shape)):
+            for j in range(len(self.shape[0])):
+                if self.shape[i][j]:
+                    if self.x + j < 0 or self.x + j >= GRID_WIDTH or self.y + i >= GRID_HEIGHT:
+                        return True
+                    if grid[self.y + i][self.x + j]:
+                        return True
+        return False
+
+def check_lines():
+    global grid
+    full_lines = [i for i, row in enumerate(grid) if all(row)]
+    for i in full_lines:
+        del grid[i]
+        grid.insert(0, [0 for _ in range(GRID_WIDTH)])
+    return len(full_lines)
 
 current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
                               random.choice(list(tetrominoes.values()))['color'])
