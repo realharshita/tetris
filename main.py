@@ -10,6 +10,7 @@ GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+GRAY = (169, 169, 169)
 FPS = 30
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -63,7 +64,8 @@ class Tetromino:
 def draw_grid():
     for y in range(GRID_HEIGHT):
         for x in range(GRID_WIDTH):
-            pygame.draw.rect(screen, WHITE, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
+            pygame.draw.rect(screen, GRAY, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
+    pygame.draw.rect(screen, WHITE, (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 5)
 
 def check_lines():
     global grid
@@ -82,10 +84,29 @@ def game_over():
     pygame.quit()
     exit()
 
+def draw_text(text, size, color, x, y):
+    font = pygame.font.Font(None, size)
+    surface = font.render(text, True, color)
+    screen.blit(surface, (x, y))
+
+def draw_next_tetromino(tetromino):
+    for i in range(len(tetromino.shape)):
+        for j in range(len(tetromino.shape[0])):
+            if tetromino.shape[i][j]:
+                pygame.draw.rect(screen, tetromino.color, (SCREEN_WIDTH - 120 + j * GRID_SIZE,
+                                                          100 + i * GRID_SIZE,
+                                                          GRID_SIZE, GRID_SIZE))
+
 current_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
                               random.choice(list(tetrominoes.values()))['color'])
 next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
                            random.choice(list(tetrominoes.values()))['color'])
+
+score = 0
+level = 1
+lines_cleared = 0
+level_up_lines = 5
+gravity_speed = 30
 
 while True:
     screen.fill(BLACK)
@@ -124,7 +145,18 @@ while True:
                                    random.choice(list(tetrominoes.values()))['color'])
         if current_tetromino.collision():
             game_over()
-        check_lines()
+        lines = check_lines()
+        lines_cleared += lines
+        score += lines * 100
+        if lines_cleared >= level_up_lines:
+            level += 1
+            lines_cleared = 0
+            gravity_speed = max(1, gravity_speed - 2)
+
+    draw_text(f'Score: {score}', 36, WHITE, SCREEN_WIDTH - 150, 20)
+    draw_text(f'Level: {level}', 36, WHITE, SCREEN_WIDTH - 150, 60)
+    draw_text('Next:', 36, WHITE, SCREEN_WIDTH - 150, 140)
+    draw_next_tetromino(next_tetromino)
 
     current_tetromino.draw()
     draw_grid()
