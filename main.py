@@ -13,7 +13,6 @@ WHITE = (255, 255, 255)
 GRAY = (169, 169, 169)
 FPS = 30
 
-# Load sound effects
 line_clear_sound = pygame.mixer.Sound('line_clear.wav')
 game_over_sound = pygame.mixer.Sound('game_over.wav')
 
@@ -81,7 +80,7 @@ def check_lines():
         grid.insert(0, [0 for _ in range(GRID_WIDTH)])
     return len(full_lines)
 
-def game_over(final_score, final_level):
+def game_over(final_score, final_level, total_lines):
     game_over_sound.play()
     font = pygame.font.Font(None, 74)
     text = font.render("Game Over", True, WHITE)
@@ -89,8 +88,10 @@ def game_over(final_score, final_level):
     
     score_text = font.render(f"Score: {final_score}", True, WHITE)
     level_text = font.render(f"Level: {final_level}", True, WHITE)
+    lines_text = font.render(f"Lines: {total_lines}", True, WHITE)
     screen.blit(score_text, (SCREEN_WIDTH // 2 - score_text.get_width() // 2, SCREEN_HEIGHT // 2 - score_text.get_height() // 2 + 20))
     screen.blit(level_text, (SCREEN_WIDTH // 2 - level_text.get_width() // 2, SCREEN_HEIGHT // 2 - level_text.get_height() // 2 + 80))
+    screen.blit(lines_text, (SCREEN_WIDTH // 2 - lines_text.get_width() // 2, SCREEN_HEIGHT // 2 - lines_text.get_height() // 2 + 140))
     
     pygame.display.update()
     pygame.time.wait(3000)
@@ -126,8 +127,10 @@ next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
 score = 0
 level = 1
 lines_cleared = 0
+total_lines_cleared = 0
 level_up_lines = 5
 gravity_speed = 30
+paused = False
 
 while True:
     screen.fill(BLACK)
@@ -136,56 +139,64 @@ while True:
             pygame.quit()
             exit()
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                current_tetromino.move(-1, 0)
-                if current_tetromino.collision():
-                    current_tetromino.move(1, 0)
-            if event.key == pygame.K_RIGHT:
-                current_tetromino.move(1, 0)
-                if current_tetromino.collision():
+            if event.key == pygame.K_p:
+                paused = not paused
+
+            if not paused:
+                if event.key == pygame.K_LEFT:
                     current_tetromino.move(-1, 0)
-            if event.key == pygame.K_DOWN:
-                current_tetromino.move(0, 1)
-                score += 1  # Increment score for soft drop
-                if current_tetromino.collision():
-                    current_tetromino.move(0, -1)
-            if event.key == pygame.K_SPACE:
-                drop_distance = hard_drop(current_tetromino)
-                score += drop_distance * 2  # Increment score for hard drop
-                current_tetromino.move(0, 1)
+                    if current_tetromino.collision():
+                        current_tetromino.move(1, 0)
+                if event.key == pygame.K_RIGHT:
+                    current_tetromino.move(1, 0)
+                    if current_tetromino.collision():
+                        current_tetromino.move(-1, 0)
+                if event.key == pygame.K_DOWN:
+                    current_tetromino.move(0, 1)
+                    score += 1
+                    if current_tetromino.collision():
+                        current_tetromino.move(0, -1)
+                if event.key == pygame.K_SPACE:
+                    drop_distance = hard_drop(current_tetromino)
+                    score += drop_distance * 2
+                    current_tetromino.move(0, 1)
+                if event.key == pygame.K_UP:
+                    current_tetromino.rotate()
+                    if current_tetromino.collision():
+                        for _ in range(3):
+                            current_tetromino.rotate()
 
-            if event.key == pygame.K_UP:
-                current_tetromino.rotate()
-                if current_tetromino.collision():
-                    for _ in range(3):
-                        current_tetromino.rotate()
-
-    current_tetromino.move(0, 1)
-    if current_tetromino.collision():
-        current_tetromino.move(0, -1)
-        for i in range(len(current_tetromino.shape)):
-            for j in range(len(current_tetromino.shape[0])):
-                if current_tetromino.shape[i][j]:
-                    grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
-        current_tetromino = next_tetromino
-        next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
-                                   random.choice(list(tetrominoes.values()))['color'])
+    if not paused:
+        current_tetromino.move(0, 1)
         if current_tetromino.collision():
-            game_over(score, level)
-        lines = check_lines()
-        lines_cleared += lines
-        score += lines * 100
-        if lines_cleared >= level_up_lines:
-            level += 1
-            lines_cleared = 0
-            gravity_speed = max(1, gravity_speed - 2)
+            current_tetromino.move(0, -1)
+            for i in range(len(current_tetromino.shape)):
+                for j in range(len(current_tetromino.shape[0])):
+                    if current_tetromino.shape[i][j]:
+                        grid[current_tetromino.y + i][current_tetromino.x + j] = current_tetromino.color
+            current_tetromino = next_tetromino
+            next_tetromino = Tetromino(random.choice(list(tetrominoes.values()))['shape'],
+                                       random.choice(list(tetrominoes.values()))['color'])
+            if current_tetromino.collision():
+                game_over(score, level, total_lines_cleared)
+            lines = check_lines()
+            lines_cleared += lines
+            total_lines_cleared += lines
+            score += lines * 100
+            if lines_cleared >= level_up_lines:
+                level += 1
+                lines_cleared = 0
+                gravity_speed = max(1, gravity_speed - 2)
 
     draw_text(f'Score: {score}', 36, WHITE, SCREEN_WIDTH - 150, 20)
     draw_text(f'Level: {level}', 36, WHITE, SCREEN_WIDTH - 150, 60)
-    draw_text('Next:', 36, WHITE, SCREEN_WIDTH - 150, 140)
+    draw_text(f'Lines: {total_lines_cleared}', 36, WHITE, SCREEN_WIDTH - 150, 100)
+    draw_grid()
+    current_tetromino.draw()
     draw_next_tetromino(next_tetromino)
 
-    current_tetromino.draw()
-    draw_grid()
-    pygame.display.update()
+    if paused:
+        draw_text("Paused", 74, WHITE, SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50)
+
+    pygame.display.flip()
     clock.tick(FPS)
